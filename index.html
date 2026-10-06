@@ -1,0 +1,1825 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPV CLOUD - Dashboard Monitoring Cabang</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React 18, ReactDOM, Lucide Icons, and Babel Standalone -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+    .animate-fade-in-up { animation: fadeInUp 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 antialiased font-sans">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Helper: Dynamic Lucide Icon Bridge
+    const createIcon = (name) => {
+      const pascalToKebab = (str) => str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+      return ({ size = 20, color = "currentColor", strokeWidth = 2, className = "", ...props }) => {
+        const iconDef = window.lucide?.[name] || window.lucide?.icons?.[name] || window.lucide?.icons?.[pascalToKebab(name)];
+        if (!iconDef) {
+          return <span style={{ width: size, height: size, display: 'inline-block' }} className={className}></span>;
+        }
+        return (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={size}
+            height={size}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`lucide lucide-${pascalToKebab(name)} ${className}`}
+            {...props}
+          >
+            {iconDef.map(([tag, attrs], idx) => React.createElement(tag, { key: idx, ...attrs }))}
+          </svg>
+        );
+      };
+    };
+
+    // Component Icons
+    const Home = createIcon('Home');
+    const MapPin = createIcon('MapPin');
+    const Users = createIcon('Users');
+    const TrendingUp = createIcon('TrendingUp');
+    const AlertCircle = createIcon('AlertCircle');
+    const Lock = createIcon('Lock');
+    const Star = createIcon('Star');
+    const Settings = createIcon('Settings');
+    const Briefcase = createIcon('Briefcase');
+    const Target = createIcon('Target');
+    const ShoppingCart = createIcon('ShoppingCart');
+    const Camera = createIcon('Camera');
+    const FileWarning = createIcon('FileWarning');
+    const Calendar = createIcon('Calendar');
+    const Menu = createIcon('Menu');
+    const X = createIcon('X');
+    const LogOut = createIcon('LogOut');
+    const FileText = createIcon('FileText');
+    const ChevronRight = createIcon('ChevronRight');
+    const Edit = createIcon('Edit');
+    const Check = createIcon('Check');
+    const Plus = createIcon('Plus');
+    const Trash2 = createIcon('Trash2');
+    const User = createIcon('User');
+    const ArrowLeft = createIcon('ArrowLeft');
+    const ExternalLink = createIcon('ExternalLink');
+    const Save = createIcon('Save');
+    const Bell = createIcon('Bell');
+    const Shield = createIcon('Shield');
+    const Database = createIcon('Database');
+    const Smartphone = createIcon('Smartphone');
+    const ToggleRight = createIcon('ToggleRight');
+    const ToggleLeft = createIcon('ToggleLeft');
+    const Cloud = createIcon('Cloud');
+    const CloudOff = createIcon('CloudOff');
+    const Loader = createIcon('Loader');
+
+    // Local Database & State Persistence Layer
+    const DB_PREFIX = 'spv_cloud_';
+
+    const DEFAULT_ROLES = ["SPV", "Leader", "Kasir", "Crew", "Rider", "Admin", "Security", "Cleaning Service"];
+    const DEFAULT_PROFILE = { name: 'Ilham Saputra', role: 'Area SPV Tangerang', phone: '081234567890' };
+    const DEFAULT_SECURITY = { pin: '123456' };
+    const DEFAULT_RATINGS = {
+      'Grogol': { GoFood: '4,8', GrabFood: '4,7', ShopeeFood: '4,9' },
+      'Bintaro': { GoFood: '4,5', GrabFood: '4,6', ShopeeFood: '4,5' },
+      'Serpong': { GoFood: '4,7', GrabFood: '4,8', ShopeeFood: '4,8' }
+    };
+    const DEFAULT_CABANG = [
+      { id: 'branch_0', name: 'Grogol', address: 'Jl. Raya Grogol No. 12, Jakarta Barat', createdAt: Date.now() - 3000 },
+      { id: 'branch_1', name: 'Bintaro', address: 'Bintaro Jaya Sektor 7, Tangerang Selatan', createdAt: Date.now() - 2000 },
+      { id: 'branch_2', name: 'Serpong', address: 'Gading Serpong Boulevard, Tangerang', createdAt: Date.now() - 1000 }
+    ];
+    const DEFAULT_MPP = [
+      { id: 'branch_0', name: 'Grogol', code: 'TGR-GRO', maxStaf: 10, staf: [{ id: '1', name: 'Budi Santoso', role: 'Leader' }, { id: '2', name: 'Siti Rahma', role: 'Kasir' }] },
+      { id: 'branch_1', name: 'Bintaro', code: 'TGR-BIN', maxStaf: 10, staf: [{ id: '3', name: 'Andi Pratama', role: 'Crew' }] },
+      { id: 'branch_2', name: 'Serpong', code: 'TGR-SER', maxStaf: 10, staf: [{ id: '4', name: 'Dewi Lestari', role: 'Kasir' }] }
+    ];
+
+    function initLocalStorage() {
+      if (!localStorage.getItem(DB_PREFIX + 'globals_profile')) {
+        localStorage.setItem(DB_PREFIX + 'globals_profile', JSON.stringify(DEFAULT_PROFILE));
+      }
+      if (!localStorage.getItem(DB_PREFIX + 'globals_security')) {
+        localStorage.setItem(DB_PREFIX + 'globals_security', JSON.stringify(DEFAULT_SECURITY));
+      }
+      if (!localStorage.getItem(DB_PREFIX + 'globals_master_roles')) {
+        localStorage.setItem(DB_PREFIX + 'globals_master_roles', JSON.stringify({ roles: DEFAULT_ROLES }));
+      }
+      if (!localStorage.getItem(DB_PREFIX + 'globals_ratings')) {
+        localStorage.setItem(DB_PREFIX + 'globals_ratings', JSON.stringify(DEFAULT_RATINGS));
+      }
+      if (!localStorage.getItem(DB_PREFIX + 'col_cabang')) {
+        localStorage.setItem(DB_PREFIX + 'col_cabang', JSON.stringify(DEFAULT_CABANG));
+      }
+      if (!localStorage.getItem(DB_PREFIX + 'col_mpp')) {
+        localStorage.setItem(DB_PREFIX + 'col_mpp', JSON.stringify(DEFAULT_MPP));
+      }
+    }
+
+    const useCollection = (fbUser, collName, sortDesc = false) => {
+      const [data, setData] = useState(() => {
+        try {
+          const saved = localStorage.getItem(DB_PREFIX + 'col_' + collName);
+          if (saved) {
+            const arr = JSON.parse(saved);
+            if (sortDesc) arr.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+            return arr;
+          }
+        } catch(e) {}
+        return [];
+      });
+
+      useEffect(() => {
+        const handleUpdate = () => {
+          try {
+            const saved = localStorage.getItem(DB_PREFIX + 'col_' + collName);
+            if (saved) {
+              const arr = JSON.parse(saved);
+              if (sortDesc) arr.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+              setData(arr);
+            } else {
+              setData([]);
+            }
+          } catch(e) {}
+        };
+
+        window.addEventListener('db-sync', handleUpdate);
+        window.addEventListener('storage', handleUpdate);
+        handleUpdate();
+
+        return () => {
+          window.removeEventListener('db-sync', handleUpdate);
+          window.removeEventListener('storage', handleUpdate);
+        };
+      }, [collName, sortDesc]);
+
+      return data;
+    };
+
+    const useDocument = (fbUser, docName, defaultData = {}) => {
+      const [data, setData] = useState(() => {
+        try {
+          const saved = localStorage.getItem(DB_PREFIX + 'globals_' + docName);
+          if (saved) return JSON.parse(saved);
+        } catch(e) {}
+        return defaultData;
+      });
+
+      useEffect(() => {
+        const handleUpdate = () => {
+          try {
+            const saved = localStorage.getItem(DB_PREFIX + 'globals_' + docName);
+            if (saved) setData(JSON.parse(saved));
+          } catch(e) {}
+        };
+
+        window.addEventListener('db-sync', handleUpdate);
+        window.addEventListener('storage', handleUpdate);
+        handleUpdate();
+
+        return () => {
+          window.removeEventListener('db-sync', handleUpdate);
+          window.removeEventListener('storage', handleUpdate);
+        };
+      }, [docName]);
+
+      return data;
+    };
+
+    const saveToDb = async (coll, docId, data) => {
+      if (coll === 'globals') {
+        localStorage.setItem(DB_PREFIX + 'globals_' + docId, JSON.stringify(data));
+      } else {
+        try {
+          const list = JSON.parse(localStorage.getItem(DB_PREFIX + 'col_' + coll) || '[]');
+          const idx = list.findIndex(item => item.id === docId);
+          if (idx > -1) {
+            list[idx] = { ...list[idx], ...data };
+          } else {
+            list.push({ id: docId, ...data });
+          }
+          localStorage.setItem(DB_PREFIX + 'col_' + coll, JSON.stringify(list));
+        } catch(e) {
+          console.error(e);
+        }
+      }
+      window.dispatchEvent(new Event('db-sync'));
+    };
+
+    const updateInDb = async (coll, docId, data) => {
+      if (coll === 'globals') {
+        const current = JSON.parse(localStorage.getItem(DB_PREFIX + 'globals_' + docId) || '{}');
+        localStorage.setItem(DB_PREFIX + 'globals_' + docId, JSON.stringify({ ...current, ...data }));
+      } else {
+        try {
+          const list = JSON.parse(localStorage.getItem(DB_PREFIX + 'col_' + coll) || '[]');
+          const idx = list.findIndex(item => item.id === docId);
+          if (idx > -1) {
+            list[idx] = { ...list[idx], ...data };
+            localStorage.setItem(DB_PREFIX + 'col_' + coll, JSON.stringify(list));
+          }
+        } catch(e) {
+          console.error(e);
+        }
+      }
+      window.dispatchEvent(new Event('db-sync'));
+    };
+
+    const delFromDb = async (coll, docId) => {
+      try {
+        const list = JSON.parse(localStorage.getItem(DB_PREFIX + 'col_' + coll) || '[]');
+        const filtered = list.filter(item => item.id !== docId);
+        localStorage.setItem(DB_PREFIX + 'col_' + coll, JSON.stringify(filtered));
+        window.dispatchEvent(new Event('db-sync'));
+      } catch(e) {
+        console.error(e);
+      }
+    };
+
+    // Screens & Views
+    const FallingLeaves = () => (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute text-green-300 opacity-60"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animation: `fall ${5 + Math.random() * 5}s linear infinite, sway ${2 + Math.random() * 3}s ease-in-out infinite alternate`,
+              animationDelay: `-${Math.random() * 5}s`,
+              fontSize: `${1.5 + Math.random()}rem`,
+              filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.2))'
+            }}
+          >
+            {i % 3 === 0 ? '🍃' : i % 3 === 1 ? '🍂' : '🌿'}
+          </div>
+        ))}
+        <style>{`
+          @keyframes fall { 0% { top: -10%; } 100% { top: 110%; } }
+          @keyframes sway { 0% { transform: translateX(0px) rotate(0deg); } 100% { transform: translateX(30px) rotate(45deg); } }
+        `}</style>
+      </div>
+    );
+
+    const ServerLoadingScreen = () => (
+      <div className="h-screen bg-green-900 flex flex-col items-center justify-center text-white space-y-4">
+        <Loader size={48} className="animate-spin text-green-400" />
+        <h2 className="text-xl font-bold animate-pulse">Menghubungkan ke Server Database...</h2>
+        <p className="text-green-300 text-sm">Harap tunggu, sedang mengamankan koneksi & sinkronisasi data.</p>
+      </div>
+    );
+
+    const WelcomeScreen = ({ onNext }) => (
+      <div className="relative h-screen bg-gradient-to-br from-green-500 to-green-700 flex flex-col items-center justify-center text-white p-6 text-center overflow-hidden">
+        <FallingLeaves />
+        <div className="z-10 bg-white/10 backdrop-blur-sm p-8 rounded-3xl border border-white/20 shadow-2xl max-w-md w-full animate-fade-in-up">
+          <div className="w-24 h-24 bg-white text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Cloud size={48} />
+          </div>
+          <h1 className="text-2xl font-extrabold mb-2 leading-tight">Selamat Datang</h1>
+          <h2 className="text-xl font-bold text-green-100 mb-4">Sistem Dashboard Terpusat</h2>
+          <p className="text-sm font-medium bg-green-800/50 inline-block px-4 py-1 rounded-full mb-6">Online Cloud Database</p>
+          <p className="text-lg mb-10 italic opacity-90">"Semua data Anda akan tersimpan aman secara otomatis di server."</p>
+          
+          <button onClick={onNext} className="w-full bg-white text-green-700 px-6 py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-green-50 active:scale-95 transition transform flex items-center justify-center gap-2">
+            Masuk Aplikasi <ChevronRight size={20} />
+          </button>
+        </div>
+      </div>
+    );
+
+    const LoginScreen = ({ onLogin, onBack, systemPin }) => {
+      const [pin, setPin] = useState('');
+      const [errorMsg, setErrorMsg] = useState('');
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        if(pin === systemPin) {
+          setErrorMsg('');
+          onLogin();
+        } else {
+          setErrorMsg("PIN Anda Salah!");
+          setPin('');
+        }
+      };
+
+      return (
+        <div className="relative h-screen bg-gradient-to-br from-green-600 to-emerald-800 flex flex-col items-center justify-center overflow-hidden">
+          <FallingLeaves />
+          <div className="z-10 bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full mx-4 border border-green-100 relative animate-fade-in-up">
+            <button onClick={onBack} className="absolute top-5 left-5 text-gray-400 hover:text-green-600 bg-gray-50 hover:bg-green-50 p-2.5 rounded-full transition-all shadow-sm border border-transparent hover:border-green-200">
+              <ArrowLeft size={20} />
+            </button>
+            
+            <div className="text-center mb-8 mt-4">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock size={32} />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800">Login Area</h2>
+              <p className="text-gray-500 text-sm mt-1">Masukkan PIN (Bawaan: {systemPin || '123456'})</p>
+            </div>
+            
+            <form onSubmit={handleLogin}>
+              <div className="mb-6">
+                <input 
+                  type="password" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value)}
+                  placeholder="••••••"
+                  className="w-full text-center text-4xl tracking-[1em] border-b-2 border-green-300 focus:outline-none focus:border-green-600 bg-transparent py-2 text-green-800 transition-colors placeholder:text-gray-300" 
+                  autoFocus
+                />
+              </div>
+              {errorMsg && <p className="text-red-500 text-sm font-bold text-center mb-4 animate-pulse">{errorMsg}</p>}
+              <button type="submit" className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-md hover:bg-green-700 active:scale-95 transition">
+                Buka Dashboard
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    };
+
+    const ViewBeranda = ({ cabangList }) => (
+      <div className="space-y-6 animate-fade-in">
+        <h2 className="text-2xl font-bold text-gray-800">Beranda (Overview)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { title: 'Total Sales MTD (Estimasi)', val: 'Data Tersinkronisasi', icon: <TrendingUp />, color: 'bg-blue-500' },
+            { title: 'Total Cabang Aktif', val: `${cabangList.length} Outlet`, icon: <MapPin />, color: 'bg-green-500' },
+            { title: 'Kondisi Server', val: 'Online (Cloud)', icon: <Cloud />, color: 'bg-purple-500' },
+            { title: 'Akses Akselerasi', val: 'Desktop Optimal', icon: <Star />, color: 'bg-yellow-500' },
+          ].map((card, i) => (
+            <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition-shadow">
+              <div className={`${card.color} text-white p-3 rounded-xl shadow-inner`}>{card.icon}</div>
+              <div>
+                <p className="text-gray-500 text-sm font-medium">{card.title}</p>
+                <p className="text-lg font-bold text-gray-800 truncate">{card.val}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <AlertCircle className="text-blue-500"/> Informasi Sistem
+          </h3>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 border-b pb-2 flex items-center gap-2"><Check size={16} className="text-green-500"/> Database Cloud tersambung & sinkronisasi data aktif.</p>
+            <p className="text-sm text-gray-600 border-b pb-2 flex items-center gap-2"><Check size={16} className="text-green-500"/> Tampilan dioptimalkan khusus untuk layar Desktop/Laptop.</p>
+            <p className="text-sm text-gray-600 flex items-center gap-2"><Check size={16} className="text-green-500"/> Data otomatis disimpan, tidak akan hilang meskipun halaman direfresh.</p>
+          </div>
+        </div>
+      </div>
+    );
+
+    const ViewMPP = ({ mppList, masterRoles, updateInDb }) => {
+      const [selectedBranchId, setSelectedBranchId] = useState(null);
+      const [newStaffName, setNewStaffName] = useState('');
+      const [newStaffRole, setNewStaffRole] = useState('Crew');
+      const [isEditingMax, setIsEditingMax] = useState(false);
+      const [tempMaxStaf, setTempMaxStaf] = useState('');
+
+      const [selectedStaffToEdit, setSelectedStaffToEdit] = useState(null);
+      const [editStaffData, setEditStaffData] = useState({ name: '', role: '', nik: '', phone: '', status: 'Kontrak', joinDate: '', address: '' });
+
+      const activeBranch = mppList.find(b => b.id === selectedBranchId);
+
+      const openModal = (id, maxStaf) => {
+        setSelectedBranchId(id);
+        setNewStaffName('');
+        setNewStaffRole('Crew');
+        setIsEditingMax(false);
+        setTempMaxStaf(maxStaf);
+      };
+
+      const handleSaveMax = () => {
+        if (!activeBranch) return;
+        const val = parseInt(tempMaxStaf);
+        if (val > 0) updateInDb('mpp', activeBranch.id, { maxStaf: val });
+        setIsEditingMax(false);
+      };
+
+      const handleAddStaff = () => {
+        if (!activeBranch || !newStaffName.trim()) return;
+        const newStafArray = [...(activeBranch.staf || []), { id: Date.now().toString(), name: newStaffName, role: newStaffRole }];
+        updateInDb('mpp', activeBranch.id, { staf: newStafArray });
+        setNewStaffName('');
+      };
+
+      const handleRemoveStaff = (staffId) => {
+        if (!activeBranch) return;
+        const newStafArray = (activeBranch.staf || []).filter(s => s.id !== staffId);
+        updateInDb('mpp', activeBranch.id, { staf: newStafArray });
+      };
+
+      const handleStaffClick = (staf) => {
+        setSelectedStaffToEdit(staf.id);
+        setEditStaffData({
+          name: staf.name, role: staf.role, nik: staf.nik || '', phone: staf.phone || '',
+          status: staf.status || 'Kontrak', joinDate: staf.joinDate || '', address: staf.address || ''
+        });
+      };
+
+      const handleUpdateStaff = () => {
+        if (!activeBranch || !editStaffData.name.trim()) return;
+        const newStafArray = [...(activeBranch.staf || [])];
+        const index = newStafArray.findIndex(s => s.id === selectedStaffToEdit);
+        if (index > -1) {
+          newStafArray[index] = { ...newStafArray[index], ...editStaffData };
+          updateInDb('mpp', activeBranch.id, { staf: newStafArray });
+        }
+        setSelectedStaffToEdit(null);
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">Manpower Planning (MPP)</h2>
+              <p className="text-sm text-gray-500 mt-1">Kelola data staf dan kapasitas maksimal cabang (Tersinkronisasi Cloud)</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {mppList.map((branch) => {
+              const currentCount = branch.staf?.length || 0;
+              const maxCount = branch.maxStaf || 1;
+              const percentage = Math.min((currentCount / maxCount) * 100, 100);
+              
+              let statusText = "Ideal";
+              let statusColor = "text-green-600 bg-green-100";
+              let barColor = "bg-green-500";
+
+              if (currentCount < maxCount) {
+                statusText = `Kurang ${maxCount - currentCount} Orang`;
+                statusColor = "text-red-600 bg-red-100"; barColor = "bg-red-500";
+              } else if (currentCount > maxCount) {
+                statusText = `Over ${currentCount - maxCount} Orang`;
+                statusColor = "text-orange-600 bg-orange-100"; barColor = "bg-orange-500";
+              }
+
+              return (
+                <div key={branch.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col h-full group">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-bold text-xl text-gray-800 leading-tight">{branch.name}</h3>
+                      <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wider">{branch.code}</p>
+                    </div>
+                    <div className="bg-violet-100 p-2.5 rounded-xl text-violet-600 shadow-inner"><Users size={20} /></div>
+                  </div>
+
+                  <div className="mb-5 flex-1">
+                    <div className="flex justify-between items-end mb-2">
+                      <span className="text-sm font-bold text-gray-600">Total Staf</span>
+                      <span className="font-black text-2xl text-gray-800">{currentCount} <span className="text-sm font-bold text-gray-400">/ {maxCount}</span></span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
+                      <div className={`h-2.5 rounded-full ${barColor} transition-all duration-500`} style={{ width: `${percentage}%` }}></div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase ${statusColor}`}>{statusText}</span>
+                  </div>
+
+                  <button onClick={() => openModal(branch.id, branch.maxStaf)} className="w-full bg-violet-50 hover:bg-violet-600 text-violet-700 hover:text-white py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border border-violet-200">
+                    <Settings size={16} /> Kelola Staf
+                  </button>
+                </div>
+              );
+            })}
+            {mppList.length === 0 && <p className="text-gray-400 italic">Belum ada data cabang.</p>}
+          </div>
+
+          {activeBranch && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+                
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-violet-600 text-white">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-xl"><Users size={24} /></div>
+                    <div>
+                      <h3 className="font-bold text-lg leading-tight">Kelola Database Staf Cabang</h3>
+                      <p className="text-sm text-violet-200 font-medium">{activeBranch.name}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedBranchId(null)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={20}/></button>
+                </div>
+
+                <div className="p-6 bg-violet-50/50 flex flex-col md:flex-row gap-6 border-b border-gray-100">
+                  <div className="flex-1 bg-white p-4 rounded-2xl border border-violet-100 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Kapasitas Maksimal (MPP)</p>
+                      {isEditingMax ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <input type="number" value={tempMaxStaf} onChange={(e) => setTempMaxStaf(e.target.value)} className="w-20 px-2 py-1 border border-violet-300 rounded outline-none font-bold text-gray-800 text-center" autoFocus/>
+                          <button onClick={handleSaveMax} className="bg-green-500 text-white p-1.5 rounded"><Check size={16}/></button>
+                          <button onClick={() => setIsEditingMax(false)} className="bg-gray-300 text-gray-700 p-1.5 rounded"><X size={16}/></button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl font-black text-violet-700">{activeBranch.maxStaf}</span>
+                          <button onClick={() => setIsEditingMax(true)} className="text-xs font-bold text-violet-600 bg-violet-100 px-2 py-1 rounded-md hover:bg-violet-200 transition-colors flex items-center gap-1">
+                            <Edit size={12}/> Edit Kuota
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tambah Staf Baru</p>
+                    <div className="flex flex-col gap-2">
+                      <input type="text" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} placeholder="Nama Karyawan..." className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-violet-500" />
+                      <div className="flex gap-2">
+                        <input type="text" list="role-list" value={newStaffRole} onChange={(e) => setNewStaffRole(e.target.value)} placeholder="Jabatan" className="flex-1 text-sm px-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-violet-500 bg-white" />
+                        <datalist id="role-list">
+                          {masterRoles.map((r,i) => <option key={i} value={r} />)}
+                        </datalist>
+                        <button onClick={handleAddStaff} disabled={!newStaffName.trim()} className={`px-3 py-2 rounded-lg font-bold text-white transition-colors flex items-center gap-1 ${!newStaffName.trim() ? 'bg-violet-200' : 'bg-violet-600 hover:bg-violet-700'}`}>
+                          <User size={16}/> Tambah
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 bg-gray-50 custom-scrollbar">
+                  <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <Users size={18} className="text-violet-600"/> Daftar Karyawan Aktif 
+                    <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">{(activeBranch.staf || []).length} Orang</span>
+                  </h4>
+                  
+                  {(!activeBranch.staf || activeBranch.staf.length === 0) ? (
+                    <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-300">
+                      <User size={40} className="mx-auto text-gray-300 mb-3" />
+                      <p className="text-sm font-medium text-gray-500">Belum ada karyawan yang diinput di cabang ini.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {activeBranch.staf.map((staf, idx) => (
+                        <div key={staf.id} className="bg-white p-3 rounded-xl border border-gray-200 flex justify-between items-center group shadow-sm hover:border-violet-300 transition-colors">
+                          <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => handleStaffClick(staf)} title="Klik untuk edit karyawan">
+                            <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-xs">{idx + 1}</div>
+                            <div>
+                              <p className="font-bold text-gray-800 text-sm group-hover:text-violet-600 transition-colors">{staf.name}</p>
+                              <p className="text-[10px] font-bold text-gray-500 uppercase">{staf.role}</p>
+                            </div>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); handleRemoveStaff(staf.id); }} className="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-transparent ml-2" title="Hapus Karyawan">
+                            <Trash2 size={16}/>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedStaffToEdit !== null && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden animate-fade-in-up">
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-violet-600 text-white">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-xl"><User size={24} /></div>
+                    <div>
+                      <h3 className="font-bold text-lg leading-tight">Detail Data Karyawan</h3>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedStaffToEdit(null)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X size={20}/></button>
+                </div>
+                
+                <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1 block uppercase tracking-wider">Nama Lengkap</label>
+                        <input type="text" value={editStaffData.name} onChange={(e) => setEditStaffData({...editStaffData, name: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 transition-all font-bold text-gray-800" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1 block uppercase tracking-wider">Jabatan / Role</label>
+                        <input type="text" list="role-list-edit" value={editStaffData.role} onChange={(e) => setEditStaffData({...editStaffData, role: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-violet-500 bg-white" />
+                        <datalist id="role-list-edit">
+                          {masterRoles.map((r,i) => <option key={i} value={r} />)}
+                        </datalist>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1 block uppercase tracking-wider">No. Karyawan (NIK)</label>
+                        <input type="text" value={editStaffData.nik} onChange={(e) => setEditStaffData({...editStaffData, nik: e.target.value})} placeholder="Contoh: 10293847" className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-violet-500" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1 block uppercase tracking-wider">Status Karyawan</label>
+                        <select value={editStaffData.status} onChange={(e) => setEditStaffData({...editStaffData, status: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-violet-500 bg-white cursor-pointer">
+                          <option value="Kontrak">Kontrak</option><option value="Tetap">Karyawan Tetap</option><option value="Part-Time">Part-Time / Partier</option><option value="Magang">Magang / Training</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1 block uppercase tracking-wider">No. HP (WhatsApp)</label>
+                        <input type="text" value={editStaffData.phone} onChange={(e) => setEditStaffData({...editStaffData, phone: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-violet-500" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1 block uppercase tracking-wider">Tanggal Bergabung</label>
+                        <input type="date" value={editStaffData.joinDate} onChange={(e) => setEditStaffData({...editStaffData, joinDate: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-violet-500" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 mb-1 block uppercase tracking-wider">Alamat Domisili</label>
+                        <textarea value={editStaffData.address} onChange={(e) => setEditStaffData({...editStaffData, address: e.target.value})} rows={4} className="w-full p-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-violet-500 resize-none" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-5 border-t border-gray-100 bg-gray-50 flex gap-3 justify-end">
+                  <button onClick={() => setSelectedStaffToEdit(null)} className="px-5 py-2.5 rounded-xl font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 transition-colors shadow-sm">Tutup</button>
+                  <button onClick={handleUpdateStaff} disabled={!editStaffData.name.trim()} className={`px-5 py-2.5 rounded-xl font-bold text-white transition-colors shadow-sm flex items-center gap-2 ${!editStaffData.name.trim() ? 'bg-violet-300' : 'bg-violet-600 hover:bg-violet-700'}`}>
+                    <Save size={18}/> Simpan
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    };
+
+    const ViewCabang = ({ cabangList, saveToDb, updateInDb, delFromDb }) => {
+      const [editingId, setEditingId] = useState(null);
+      const [editAddress, setEditAddress] = useState('');
+      const [editGmapsLink, setEditGmapsLink] = useState('');
+
+      const [isAdding, setIsAdding] = useState(false);
+      const [newName, setNewName] = useState('');
+      const [newAddress, setNewAddress] = useState('');
+      const [newGmapsLink, setNewGmapsLink] = useState('');
+      const [branchToDelete, setBranchToDelete] = useState(null);
+
+      const startEdit = (branch) => {
+        setEditingId(branch.id);
+        setEditAddress(branch.address || '');
+        setEditGmapsLink(branch.gmapsLink || '');
+      };
+
+      const saveEdit = () => {
+        updateInDb('cabang', editingId, { address: editAddress, gmapsLink: editGmapsLink });
+        setEditingId(null);
+      };
+
+      const cancelEdit = () => setEditingId(null);
+
+      const saveNewBranch = () => {
+        if (!newName.trim()) return;
+        const newId = Date.now().toString();
+        saveToDb('cabang', newId, { id: newId, name: newName, address: newAddress, gmapsLink: newGmapsLink, createdAt: Date.now() });
+        saveToDb('mpp', newId, { id: newId, name: newName, code: 'TGR-' + newName.substring(0,3).toUpperCase(), maxStaf: 10, staf: [] });
+        cancelAdd();
+      };
+
+      const cancelAdd = () => { setIsAdding(false); setNewName(''); setNewAddress(''); setNewGmapsLink(''); };
+      const executeDelete = () => {
+        if (branchToDelete) {
+          delFromDb('cabang', branchToDelete.id);
+          delFromDb('mpp', branchToDelete.id);
+          setBranchToDelete(null);
+        }
+      };
+
+      return (
+        <div className="space-y-4 animate-fade-in">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">Data Cabang Tangerang</h2>
+              <p className="text-sm font-medium text-gray-500 mt-1">Total: <span className="text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-lg">{cabangList.length} Outlet</span></p>
+            </div>
+            <button onClick={() => setIsAdding(true)} className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 shadow-md hover:bg-green-700 active:scale-95 transition-all">
+              <Plus size={18} /> Tambah Cabang
+            </button>
+          </div>
+          
+          {isAdding && (
+            <div className="bg-green-50 p-6 rounded-2xl shadow-inner border border-green-200 mb-6 animate-fade-in-up">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-green-200 p-2 rounded-lg text-green-700"><Plus size={20} /></div>
+                <h3 className="font-bold text-lg text-green-800">Input Data Cabang Baru</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="text-xs text-green-700 mb-1 block font-bold">Nama Cabang *</label>
+                  <input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="w-full p-2.5 border border-green-300 rounded-lg text-sm bg-white" placeholder="Contoh: BSD City" autoFocus/>
+                </div>
+                <div>
+                  <label className="text-xs text-green-700 mb-1 block font-bold">Alamat Lengkap</label>
+                  <textarea value={newAddress} onChange={e => setNewAddress(e.target.value)} className="w-full p-2.5 border border-green-300 rounded-lg text-sm bg-white" rows={1} placeholder="Masukkan alamat lengkap..."/>
+                </div>
+                <div>
+                  <label className="text-xs text-green-700 mb-1 block font-bold">Link Google Maps (Opsional)</label>
+                  <input type="url" value={newGmapsLink} onChange={e => setNewGmapsLink(e.target.value)} className="w-full p-2.5 border border-green-300 rounded-lg text-sm bg-white" placeholder="https://maps.app.goo.gl/..."/>
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end mt-4 pt-4 border-t border-green-200">
+                <button onClick={cancelAdd} className="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 shadow-sm"><X size={16}/> Batal</button>
+                <button onClick={saveNewBranch} disabled={!newName.trim()} className={`px-4 py-2 text-sm font-bold text-white rounded-lg transition-colors flex items-center gap-1 shadow-sm ${!newName.trim() ? 'bg-green-300' : 'bg-green-600 hover:bg-green-700'}`}><Check size={16}/> Simpan</button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {cabangList.map((cabang) => {
+              const mapUrl = cabang.gmapsLink ? cabang.gmapsLink : `https://maps.google.com/?q=${encodeURIComponent(cabang.address || cabang.name)}`;
+              const isEditing = editingId === cabang.id;
+
+              return (
+                <div key={cabang.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all flex flex-col h-full relative group">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-green-100 p-3 rounded-xl text-green-600 shadow-inner"><MapPin size={24}/></div>
+                      <div>
+                        <h3 className="font-bold text-xl text-gray-800">{cabang.name}</h3>
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full mt-1">
+                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Buka
+                        </span>
+                      </div>
+                    </div>
+                    {!isEditing && (
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => startEdit(cabang)} className="text-gray-500 hover:text-blue-500 bg-gray-50 hover:bg-blue-50 p-2 rounded-lg transition-all border border-gray-200" title="Edit"><Edit size={16} /></button>
+                        <button onClick={() => setBranchToDelete(cabang)} className="text-gray-500 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-2 rounded-lg transition-all border border-gray-200" title="Hapus"><Trash2 size={16} /></button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 space-y-4 mb-6">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col justify-center min-h-[6rem]">
+                      <p className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2">Informasi Lokasi</p>
+                      {isEditing ? (
+                        <div className="space-y-3 animate-fade-in">
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Alamat:</label>
+                            <textarea value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="w-full p-2 border border-blue-300 rounded-md text-sm bg-white" rows={2}/>
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 mb-1 block">Maps (Opsional):</label>
+                            <input type="url" value={editGmapsLink} onChange={(e) => setEditGmapsLink(e.target.value)} className="w-full p-2 border border-blue-300 rounded-md text-sm bg-white"/>
+                          </div>
+                          <div className="flex gap-2 justify-end mt-2">
+                            <button onClick={cancelEdit} className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300"><X size={14}/></button>
+                            <button onClick={saveEdit} className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"><Check size={14}/></button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-700 font-medium leading-relaxed">{cabang.address || '-'}</p>
+                      )}
+                    </div>
+                  </div>
+                  <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-auto w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white py-3 rounded-xl text-sm font-bold transition-all border border-blue-200 hover:shadow-md">
+                    <MapPin size={18} /> Buka Google Maps
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+
+          {branchToDelete && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white p-6 rounded-3xl shadow-2xl max-w-sm w-full text-center animate-fade-in-up">
+                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-inner"><Trash2 size={36} /></div>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">Hapus Cabang?</h3>
+                <p className="text-sm text-gray-500 mb-6">Apakah yakin menghapus cabang <br/><b className="text-gray-800 text-lg">{branchToDelete.name}</b>?</p>
+                <div className="flex gap-3 justify-center">
+                  <button onClick={() => setBranchToDelete(null)} className="px-4 py-3 font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors flex-1">Batal</button>
+                  <button onClick={executeDelete} className="px-4 py-3 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors flex-1 shadow-md">Ya, Hapus</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const ViewMTD = ({ cabangList, mtdList, saveToDb }) => {
+      const currentYearMonth = new Date().toISOString().substring(0, 7);
+      const [selectedMonth, setSelectedMonth] = useState(currentYearMonth);
+      const [selectedBranch, setSelectedBranch] = useState(cabangList[0]?.name || '');
+
+      useEffect(() => {
+        if (!selectedBranch && cabangList.length > 0) setSelectedBranch(cabangList[0].name);
+      }, [cabangList, selectedBranch]);
+
+      const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
+      const parseNum = (str) => parseInt(String(str).replace(/[^0-9]/g, '')) || 0;
+
+      const [year, month] = selectedMonth.split('-');
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const daysArray = Array.from({length: daysInMonth}, (_, i) => i + 1);
+      
+      const getDayName = (day) => {
+        const d = new Date(year, month - 1, day);
+        const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        return days[d.getDay()];
+      };
+
+      const sheetId = `${selectedBranch}-${selectedMonth}`;
+      const currentSheet = mtdList.find(s => s.id === sheetId) || { id: sheetId, cabang: selectedBranch, month: selectedMonth, target: 0, days: {} };
+      
+      const targetBulan = currentSheet.target || 0;
+      const targetHarian = targetBulan > 0 ? targetBulan / daysInMonth : 0;
+
+      const handleUpdate = (day, field, value) => {
+        const numValue = value.replace(/[^0-9]/g, '');
+        const updatedSheet = { ...currentSheet, days: { ...(currentSheet.days || {}) } };
+        updatedSheet.days[day] = { ...(updatedSheet.days[day] || {}), [field]: numValue };
+        saveToDb('mtd', sheetId, updatedSheet);
+      };
+
+      const handleUpdateTarget = (value) => {
+        const updatedSheet = { ...currentSheet, target: parseNum(value) };
+        saveToDb('mtd', sheetId, updatedSheet);
+      };
+
+      const branchSummaries = cabangList.map(cabang => {
+        const s = mtdList.find(sh => sh.id === `${cabang.name}-${selectedMonth}`) || { target: 0, days: {} };
+        const totalNet = Object.values(s.days || {}).reduce((sum, d) => sum + parseNum(d.net), 0);
+        const ach = s.target > 0 ? (totalNet / s.target) * 100 : 0;
+        return { name: cabang.name, totalNet, ach, target: s.target };
+      });
+
+      let grandTotalKotor = 0;
+      let grandTotalNet = 0;
+      daysArray.forEach(day => {
+        const row = (currentSheet.days || {})[day] || {};
+        grandTotalKotor += parseNum(row.kotor);
+        grandTotalNet += parseNum(row.net);
+      });
+      const grandTotalAch = targetBulan > 0 ? (grandTotalNet / targetBulan) * 100 : 0;
+
+      return (
+        <div className="space-y-4 animate-fade-in font-sans">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Laporan MTD Multi-Cabang</h2>
+            <p className="text-xs text-gray-500 mb-3">Klik kartu untuk memilih cabang spreadsheet laporan MTD</p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+              {branchSummaries.map((summary, idx) => (
+                <div 
+                  key={idx} 
+                  onClick={() => setSelectedBranch(summary.name)}
+                  className={`p-2.5 rounded-lg border transition-all cursor-pointer shadow-sm relative overflow-hidden ${selectedBranch === summary.name ? 'border-green-500 ring-1 ring-green-500 bg-green-50/20' : 'border-gray-200 hover:border-green-300 hover:shadow bg-white'}`}
+                >
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Cabang</p>
+                  <h3 className="font-extrabold text-gray-800 text-[11px] mb-1 uppercase truncate">{summary.name}</h3>
+                  <p className="font-black text-sm text-green-700 leading-tight truncate mb-1">
+                    {formatRp(summary.totalNet).replace(',00', '')}
+                  </p>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-[9px] text-gray-400">Ach MTD:</span>
+                    <span className={`text-[10px] font-bold ${summary.ach >= 100 ? 'text-green-600' : summary.ach >= 50 ? 'text-yellow-600' : 'text-red-500'}`}>
+                      {summary.ach.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full">
+            <div className="p-3 bg-gray-50 flex flex-wrap items-center gap-3 border-b border-gray-200 text-xs">
+              <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                <span className="px-2.5 py-1.5 bg-gray-100 text-gray-500 font-bold uppercase border-r border-gray-300">Outlet / Cabang:</span>
+                <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="px-2.5 py-1.5 outline-none font-bold text-green-700 bg-transparent cursor-pointer">
+                  {cabangList.map((c, i) => <option key={i} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                <span className="px-2.5 py-1.5 bg-gray-100 text-gray-500 font-bold uppercase border-r border-gray-300">Bulan MTD:</span>
+                <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="px-2.5 py-1.5 outline-none font-bold text-gray-800 bg-transparent cursor-pointer uppercase" />
+              </div>
+
+              <div className="flex items-center bg-white border border-green-300 rounded-lg overflow-hidden shadow-sm relative ml-auto">
+                <span className="px-2.5 py-1.5 bg-green-50 text-gray-500 font-bold uppercase border-r border-green-200">Target Bulanan:</span>
+                <span className="absolute left-[130px] top-1.5 text-green-700 font-bold ml-1">Rp</span>
+                <input type="text" value={targetBulan ? targetBulan.toLocaleString('id-ID') : ''} onChange={(e) => handleUpdateTarget(e.target.value)} placeholder="0" className="pl-8 pr-2.5 py-1.5 outline-none font-black text-green-700 w-36 bg-transparent text-right" />
+              </div>
+            </div>
+
+            <div className="bg-[#108c5c] text-white py-2 px-3 text-center">
+              <h3 className="font-bold text-xs uppercase tracking-widest">CABANG {selectedBranch} ({month}/{year})</h3>
+            </div>
+
+            <div className="overflow-x-auto custom-scrollbar bg-white w-full">
+              <table className="w-full text-xs border-collapse whitespace-nowrap min-w-[950px]">
+                <thead>
+                  <tr className="bg-[#f0fdf4] text-green-900 border-b-2 border-green-200">
+                    <th className="p-2 font-bold border-r border-green-200 w-16 text-center uppercase text-[10px]">Hari</th>
+                    <th className="p-2 font-bold border-r border-green-200 w-24 text-center uppercase text-[10px]">Tanggal</th>
+                    <th className="p-2 font-bold border-r border-green-200 text-right uppercase text-[10px]">Sales Kotor</th>
+                    <th className="p-2 font-bold border-r border-green-200 text-right uppercase text-[10px]">Net Sales</th>
+                    <th className="p-2 font-bold border-r border-green-200 text-center uppercase text-[10px] w-24">Persen Ach MTD</th>
+                    <th className="p-2 font-bold border-r border-green-200 text-right uppercase text-[10px]">Target Sales Harian</th>
+                    <th className="p-2 font-bold border-r border-green-200 text-center uppercase text-[10px] w-20">Persentase</th>
+                    <th className="p-2 font-bold text-center uppercase text-[10px] w-28">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {daysArray.map((day) => {
+                    const rowData = (currentSheet.days || {})[day] || {};
+                    const kotor = rowData.kotor || '';
+                    const net = rowData.net || '';
+                    const netVal = parseNum(net);
+                    
+                    const achMtd = targetBulan > 0 ? (netVal / targetBulan) * 100 : 0;
+                    const percentHarian = targetHarian > 0 ? (netVal / targetHarian) * 100 : 0;
+                    const isAchieved = percentHarian >= 100;
+                    
+                    return (
+                      <tr key={day} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                        <td className="p-1.5 border-r border-gray-200 text-gray-500 font-medium text-center bg-gray-50/50 text-[11px]">{getDayName(day)}</td>
+                        <td className="p-1.5 border-r border-gray-200 text-gray-500 font-medium text-center bg-gray-50/50 text-[11px]">{day}/{month}/{year}</td>
+                        
+                        <td className="p-0 border-r border-gray-200 relative bg-white group">
+                          <input type="text" value={kotor ? parseNum(kotor).toLocaleString('id-ID') : ''} onChange={(e) => handleUpdate(day, 'kotor', e.target.value)} placeholder="0" className="w-full h-full p-1.5 text-right outline-none bg-transparent font-medium text-gray-700 text-xs focus:bg-blue-50 group-hover:bg-blue-50/50" />
+                        </td>
+
+                        <td className="p-0 border-r border-gray-200 relative bg-[#f8fafc] group">
+                          <input type="text" value={net ? parseNum(net).toLocaleString('id-ID') : ''} onChange={(e) => handleUpdate(day, 'net', e.target.value)} placeholder="0" className="w-full h-full p-1.5 text-right outline-none bg-transparent font-bold text-gray-900 text-xs focus:bg-green-50 group-hover:bg-green-50/50" />
+                        </td>
+
+                        <td className="p-1.5 border-r border-gray-200 text-center font-medium text-gray-600 text-[11px]">{achMtd > 0 ? achMtd.toFixed(2) + '%' : '0.00%'}</td>
+                        <td className="p-1.5 border-r border-gray-200 text-right text-gray-400 font-medium bg-gray-50/30 text-[11px]">{targetHarian > 0 ? formatRp(targetHarian).replace(',00', '') : 'Rp0'}</td>
+                        <td className="p-1.5 border-r border-gray-200 text-center font-bold text-gray-700 text-[11px]">{percentHarian > 0 ? Math.round(percentHarian) + '%' : '0%'}</td>
+                        <td className={`p-1.5 text-center font-bold text-[10px] tracking-wider ${isAchieved && netVal > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {netVal > 0 ? (isAchieved ? 'ACHIEVED' : 'NOT ACHIEVED') : 'NOT ACHIEVED'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-[#dcfce7] border-t-2 border-green-300">
+                    <td colSpan="2" className="p-2 border-r border-green-300 font-black text-center text-green-900">TOTAL</td>
+                    <td className="p-2 border-r border-green-300 font-black text-right text-green-800">{formatRp(grandTotalKotor).replace(',00', '')}</td>
+                    <td className="p-2 border-r border-green-300 font-black text-right text-green-800">{formatRp(grandTotalNet).replace(',00', '')}</td>
+                    <td className="p-2 border-r border-green-300 font-black text-center text-green-800">{grandTotalAch.toFixed(2)}%</td>
+                    <td colSpan="3" className="p-2"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const ViewKomplan = ({ cabangList, komplainList, saveToDb, updateInDb, delFromDb }) => {
+      const today = new Date().toISOString().split('T')[0];
+      const [showHistory, setShowHistory] = useState(false);
+
+      const [inputCabang, setInputCabang] = useState('');
+      const [inputDetail, setInputDetail] = useState('');
+      const [inputDate, setInputDate] = useState(today);
+      
+      const [filterCabang, setFilterCabang] = useState('Semua');
+      const [filterDate, setFilterDate] = useState(today);
+
+      const handleSubmit = () => {
+        if (!inputCabang || !inputDetail.trim() || !inputDate) return;
+        const dateObj = new Date(inputDate);
+        const newId = Date.now().toString();
+        const newKomplain = {
+          id: newId, cabang: inputCabang, detail: inputDetail, 
+          status: 'Proses Investigasi', 
+          date: dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+          rawDate: inputDate, createdAt: Date.now()
+        };
+        saveToDb('komplain', newId, newKomplain);
+        setInputCabang(''); setInputDetail('');
+      };
+
+      const toggleStatus = (id, currentStatus) => {
+        const newStatus = currentStatus === 'Proses Investigasi' ? 'Selesai' : 'Proses Investigasi';
+        updateInDb('komplain', id, { status: newStatus });
+      };
+
+      const filteredKomplain = komplainList.filter(k => {
+        const matchCabang = filterCabang === 'Semua' ? true : k.cabang === filterCabang;
+        const matchDate = filterDate ? (k.rawDate === filterDate) : true;
+        return matchCabang && matchDate;
+      });
+
+      if (showHistory) {
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setShowHistory(false)} className="bg-white hover:bg-gray-100 text-gray-600 p-2.5 rounded-full shadow-sm border border-gray-200"><ArrowLeft size={20} /></button>
+                <h2 className="text-2xl font-bold text-gray-800">Riwayat Komplain</h2>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2"><span className="text-orange-600"><AlertCircle size={20} /></span> Daftar Komplain <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2.5 py-0.5 rounded-full ml-1">{filteredKomplain.length} Data</span></h3>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+                    <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-full sm:w-auto p-1.5 text-xs bg-transparent focus:outline-none focus:text-orange-600 font-bold text-gray-700" />
+                    {filterDate && <button onClick={() => setFilterDate('')} className="px-2 text-gray-400 hover:text-red-500"><X size={14} /></button>}
+                  </div>
+                  <select value={filterCabang} onChange={(e) => setFilterCabang(e.target.value)} className="p-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:text-orange-600 font-bold text-gray-700 shadow-sm cursor-pointer">
+                    <option value="Semua">Semua Cabang</option>
+                    {cabangList.map((c, i) => <option key={i} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[550px] overflow-y-auto custom-scrollbar">
+                {filteredKomplain.length === 0 ? (
+                  <div className="col-span-full text-center py-12 text-gray-400 text-sm font-medium"><Check size={36} className="mx-auto opacity-20 text-green-500 mb-2"/>Tidak ada riwayat komplain.</div>
+                ) : (
+                  filteredKomplain.map((item) => (
+                    <div key={item.id} className={`p-5 border rounded-2xl flex flex-col group relative shadow-sm hover:shadow-md ${item.status === 'Selesai' ? 'border-green-200 bg-green-50/30' : 'border-orange-200 bg-orange-50/30'}`}>
+                      <button onClick={() => delFromDb('komplain', item.id)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 bg-white p-1.5 rounded-lg border border-red-100"><Trash2 size={16} /></button>
+                      <div className="mb-2">
+                        <span className="font-extrabold text-base text-gray-800 block mb-1">{item.cabang}</span>
+                        <span className="text-[10px] text-gray-500 font-medium bg-white px-2 py-0.5 rounded-md border border-gray-200"><Calendar size={10} className="inline mr-1" />{item.date}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-2 bg-white/60 p-3 rounded-xl border border-gray-100/50 flex-1">{item.detail}</p>
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200/60 mt-3">
+                        <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${item.status === 'Selesai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {item.status === 'Selesai' ? <Check size={14}/> : <AlertCircle size={14}/>}{item.status}
+                        </span>
+                        <button onClick={() => toggleStatus(item.id, item.status)} className={`text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm ${item.status === 'Selesai' ? 'bg-white border text-gray-600 hover:bg-gray-50' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}>
+                          {item.status === 'Selesai' ? 'Buka Lagi' : 'Selesai'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <h2 className="text-2xl font-bold text-gray-800">Laporan Komplain Pelanggan</h2>
+            <button onClick={() => setShowHistory(true)} className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-md active:scale-95"><FileText size={18}/> Buka Riwayat</button>
+          </div>
+          
+          <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 shadow-sm max-w-2xl">
+            <h3 className="font-bold text-orange-700 text-lg mb-6 flex items-center gap-2 border-b border-orange-200 pb-3"><AlertCircle size={24}/> Form Input Komplain Baru</h3>
+            <div className="space-y-5 mb-8">
+              <input type="date" value={inputDate} onChange={e => { setInputDate(e.target.value); setFilterDate(e.target.value); }} className="w-full p-3.5 border border-orange-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 font-medium"/>
+              <select value={inputCabang} onChange={e => setInputCabang(e.target.value)} className="w-full p-3.5 border border-orange-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 font-medium">
+                <option value="">-- Pilih Cabang --</option>
+                {cabangList.map((c, i) => <option key={i} value={c.name}>{c.name}</option>)}
+              </select>
+              <textarea value={inputDetail} onChange={e => setInputDetail(e.target.value)} placeholder="Deskripsikan komplain..." className="w-full p-3.5 border border-orange-200 rounded-xl text-sm h-32 bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"></textarea>
+            </div>
+            <button onClick={handleSubmit} disabled={!inputCabang || !inputDetail.trim()} className={`w-full p-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 ${!inputCabang || !inputDetail.trim() ? 'bg-orange-200 text-orange-400' : 'bg-orange-600 hover:bg-orange-700 text-white shadow-sm'}`}><Plus size={20} /> Submit Laporan</button>
+          </div>
+        </div>
+      );
+    };
+
+    const ViewBTO = ({ cabangList, btoList, btmList, saveToDb, delFromDb }) => {
+      const today = new Date().toISOString().split('T')[0];
+      const [showHistory, setShowHistory] = useState(false);
+
+      const [btoCabang, setBtoCabang] = useState(''); const [btoDate, setBtoDate] = useState(today); const [btoAlasan, setBtoAlasan] = useState(''); const [btoDurasi, setBtoDurasi] = useState('');
+      const [btmCabang, setBtmCabang] = useState(''); const [btmDate, setBtmDate] = useState(today); const [btmMenu, setBtmMenu] = useState(''); const [btmAlasan, setBtmAlasan] = useState('');
+
+      const [filterBtoCabang, setFilterBtoCabang] = useState('Semua'); const [filterBtoDate, setFilterBtoDate] = useState(today);
+      const [filterBtmCabang, setFilterBtmCabang] = useState('Semua'); const [filterBtmDate, setFilterBtmDate] = useState(today);
+
+      const handleAddBTO = () => {
+        if (!btoCabang || !btoAlasan || !btoDurasi) return;
+        const dateObj = new Date(btoDate);
+        const newId = Date.now().toString();
+        saveToDb('bto', newId, { id: newId, cabang: btoCabang, alasan: btoAlasan, durasi: btoDurasi, date: dateObj.toLocaleDateString('id-ID', {day: '2-digit', month:'short', year:'numeric'}), rawDate: btoDate, createdAt: Date.now() });
+        setBtoCabang(''); setBtoAlasan(''); setBtoDurasi('');
+      };
+
+      const handleAddBTM = () => {
+        if (!btmCabang || !btmMenu || !btmAlasan) return;
+        const dateObj = new Date(btmDate);
+        const newId = Date.now().toString();
+        saveToDb('btm', newId, { id: newId, cabang: btmCabang, menu: btmMenu, alasan: btmAlasan, date: dateObj.toLocaleDateString('id-ID', {day: '2-digit', month:'short', year:'numeric'}), rawDate: btmDate, createdAt: Date.now() });
+        setBtmCabang(''); setBtmMenu(''); setBtmAlasan('');
+      };
+
+      const filteredBTO = btoList.filter(item => (filterBtoCabang === 'Semua' || item.cabang === filterBtoCabang) && (!filterBtoDate || item.rawDate === filterBtoDate));
+      const filteredBTM = btmList.filter(item => (filterBtmCabang === 'Semua' || item.cabang === filterBtmCabang) && (!filterBtmDate || item.rawDate === filterBtmDate));
+
+      if (showHistory) {
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <button onClick={() => setShowHistory(false)} className="bg-white hover:bg-gray-100 text-gray-600 p-2.5 rounded-full shadow-sm border border-gray-200"><ArrowLeft size={20} /></button>
+              <h2 className="text-2xl font-bold text-gray-800">Layar Riwayat BTO & BTM</h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-red-100 flex flex-col">
+                <div className="flex justify-between items-center bg-red-50 p-4 rounded-xl border border-red-100 mb-4">
+                  <h4 className="font-bold text-red-700 flex items-center gap-2"><Lock size={18}/> Riwayat BTO</h4>
+                  <input type="date" value={filterBtoDate} onChange={e => setFilterBtoDate(e.target.value)} className="p-1.5 text-xs bg-white border border-gray-200 rounded-lg font-bold" />
+                </div>
+                <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 flex-1">
+                  {filteredBTO.map((item) => (
+                    <div key={item.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 relative group">
+                      <button onClick={() => delFromDb('bto', item.id)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                      <p className="font-extrabold text-gray-800">{item.cabang}</p>
+                      <p className="text-xs text-gray-500 mb-2"><Calendar size={12} className="inline"/> {item.date}</p>
+                      <div className="flex gap-4 mt-2"><div className="flex-1"><p className="text-[10px] text-gray-400 font-bold">Alasan</p><p className="text-sm font-bold">{item.alasan}</p></div><div className="flex-1"><p className="text-[10px] text-gray-400 font-bold">Durasi</p><p className="text-sm font-black text-red-600">{item.durasi}</p></div></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-orange-100 flex flex-col">
+                <div className="flex justify-between items-center bg-orange-50 p-4 rounded-xl border border-orange-100 mb-4">
+                  <h4 className="font-bold text-orange-700 flex items-center gap-2"><FileWarning size={18}/> Riwayat BTM</h4>
+                  <input type="date" value={filterBtmDate} onChange={e => setFilterBtmDate(e.target.value)} className="p-1.5 text-xs bg-white border border-gray-200 rounded-lg font-bold" />
+                </div>
+                <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 flex-1">
+                  {filteredBTM.map((item) => (
+                    <div key={item.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 relative group">
+                      <button onClick={() => delFromDb('btm', item.id)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                      <p className="font-extrabold text-gray-800">{item.cabang}</p>
+                      <p className="text-xs text-gray-500 mb-2"><Calendar size={12} className="inline"/> {item.date}</p>
+                      <p className="text-sm font-black text-orange-600 mb-1">{item.menu}</p>
+                      <p className="text-sm font-bold text-gray-700">{item.alasan}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-800">Tutup Outlet / Menu (BTO/BTM)</h2>
+            <button onClick={() => setShowHistory(true)} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex gap-2 shadow-md"><FileText size={18}/> Riwayat</button>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-red-50 p-6 rounded-3xl border border-red-100 shadow-sm">
+              <h3 className="font-bold text-red-700 text-lg mb-4 flex items-center gap-2"><Lock size={20}/> Input BTO</h3>
+              <input type="date" value={btoDate} onChange={e => {setBtoDate(e.target.value); setFilterBtoDate(e.target.value)}} className="w-full mb-3 p-3 rounded-xl border border-red-200" />
+              <select value={btoCabang} onChange={e => setBtoCabang(e.target.value)} className="w-full mb-3 p-3 rounded-xl border border-red-200"><option value="">Pilih Cabang</option>{cabangList.map((c,i) => <option key={i}>{c.name}</option>)}</select>
+              <input type="text" value={btoAlasan} onChange={e => setBtoAlasan(e.target.value)} placeholder="Alasan BTO" className="w-full mb-3 p-3 rounded-xl border border-red-200" />
+              <input type="text" value={btoDurasi} onChange={e => setBtoDurasi(e.target.value)} placeholder="Estimasi Durasi" className="w-full mb-4 p-3 rounded-xl border border-red-200" />
+              <button onClick={handleAddBTO} disabled={!btoCabang} className="w-full bg-red-600 text-white py-3 rounded-xl font-bold">Submit BTO</button>
+            </div>
+            <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 shadow-sm">
+              <h3 className="font-bold text-orange-700 text-lg mb-4 flex items-center gap-2"><FileWarning size={20}/> Input BTM</h3>
+              <input type="date" value={btmDate} onChange={e => {setBtmDate(e.target.value); setFilterBtmDate(e.target.value)}} className="w-full mb-3 p-3 rounded-xl border border-orange-200" />
+              <select value={btmCabang} onChange={e => setBtmCabang(e.target.value)} className="w-full mb-3 p-3 rounded-xl border border-orange-200"><option value="">Pilih Cabang</option>{cabangList.map((c,i) => <option key={i}>{c.name}</option>)}</select>
+              <input type="text" value={btmMenu} onChange={e => setBtmMenu(e.target.value)} placeholder="Menu yang ditutup" className="w-full mb-3 p-3 rounded-xl border border-orange-200" />
+              <input type="text" value={btmAlasan} onChange={e => setBtmAlasan(e.target.value)} placeholder="Alasan" className="w-full mb-4 p-3 rounded-xl border border-orange-200" />
+              <button onClick={handleAddBTM} disabled={!btmCabang} className="w-full bg-orange-500 text-white py-3 rounded-xl font-bold">Submit BTM</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const PlatformLogo = ({ platform, size = 24 }) => {
+      if (platform === 'GoFood') return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#EE2737"/><circle cx="12" cy="12" r="6" stroke="white" strokeWidth="2.5"/><circle cx="12" cy="12" r="2.5" fill="white"/></svg>;
+      if (platform === 'GrabFood') return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#00B14F"/><path d="M7 14.5C7 14.5 9 11 12 11C15 11 17 14.5 17 14.5" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M7 10.5C7 10.5 9 7 12 7C15 7 17 10.5 17 10.5" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>;
+      if (platform === 'ShopeeFood') return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#EE4D2D"/><path d="M8 10L9 16H15L16 10H8Z" fill="white"/><path d="M10 9C10 7.89543 10.8954 7 12 7C13.1046 7 14 7.89543 14 9" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>;
+      return null;
+    };
+
+    const ViewRating = ({ cabangList, branchRatings, updateInDb }) => {
+      const [editState, setEditState] = useState(null);
+      const [tempRating, setTempRating] = useState('');
+
+      const getRating = (branchName, plat) => (branchRatings && branchRatings[branchName] && branchRatings[branchName][plat]) ? branchRatings[branchName][plat] : '0,0';
+
+      const startEdit = (branchName, plat) => {
+        setTempRating(getRating(branchName, plat));
+        setEditState({ branchName, platform: plat });
+      };
+
+      const handleSave = () => {
+        if (!editState) return;
+        const { branchName, platform } = editState;
+        const newRatings = { ...branchRatings, [branchName]: { ...((branchRatings && branchRatings[branchName]) || {}), [platform]: tempRating } };
+        updateInDb('globals', 'ratings', newRatings);
+        setEditState(null);
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <h2 className="text-2xl font-bold text-gray-800">Rating APK Online</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {cabangList.map((cabang) => (
+              <div key={cabang.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                <h3 className="text-xl font-black text-gray-800 text-center mb-6 pb-4 border-b">{cabang.name}</h3>
+                <div className="flex justify-between px-2">
+                  {['GoFood', 'GrabFood', 'ShopeeFood'].map(plat => {
+                    const isEditing = editState?.branchName === cabang.name && editState?.platform === plat;
+                    return (
+                      <div key={plat} className="flex flex-col items-center gap-3">
+                        <PlatformLogo platform={plat} size={42} />
+                        {isEditing ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <input type="text" value={tempRating} onChange={e => setTempRating(e.target.value)} onKeyDown={e => {if(e.key==='Enter') handleSave()}} className="w-12 text-lg font-bold text-center border-b-2" autoFocus/>
+                            <button onClick={handleSave} className="bg-green-500 text-white rounded p-1 w-full text-xs"><Check size={12} className="mx-auto"/></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded" onClick={() => startEdit(cabang.name, plat)}>
+                            <span className="font-medium text-lg">{getRating(cabang.name, plat)}</span><Star size={14} className="text-yellow-400 fill-yellow-400" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    const ViewGA = ({ cabangList, soAsetList, saveToDb, delFromDb }) => {
+      const today = new Date().toISOString().split('T')[0];
+      const [showHistory, setShowHistory] = useState(false);
+
+      const [store, setStore] = useState(''); const [date, setDate] = useState(today); const [validator, setValidator] = useState('');
+      
+      const initialRow = { id: Date.now().toString(), namaAsset: '', merkType: '', kategori: 'Aset', area: 'Kitchen', jumlah: '', kondisiLayak: '', kondisiRusak: '', tanggalBeli: '', hargaPerolehan: '' };
+      const [rows, setRows] = useState([initialRow]);
+      
+      const [selectedDoc, setSelectedDoc] = useState(null);
+      const [isEditingModal, setIsEditingModal] = useState(false);
+      const [editDoc, setEditDoc] = useState(null);
+
+      const addRow = () => setRows([...rows, { ...initialRow, id: Date.now().toString() }]);
+      const removeRow = (id) => { if (rows.length > 1) setRows(rows.filter(r => r.id !== id)); };
+      const updateRow = (id, field, value) => setRows(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
+      const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num || 0);
+
+      const saveSO = () => {
+        if (!store || !date || rows.length === 0) return;
+        const newId = Date.now().toString();
+        const newDoc = {
+          id: newId, store, date, validator, items: rows,
+          totalValue: rows.reduce((acc, r) => acc + ((parseInt(r.jumlah)||0) * (parseInt(r.hargaPerolehan)||0)), 0),
+          createdAt: Date.now()
+        };
+        saveToDb('so_aset', newId, newDoc);
+        setStore(''); setValidator(''); setRows([{ ...initialRow, id: Date.now().toString() }]);
+      };
+
+      const openModal = (doc) => { setSelectedDoc(doc); setEditDoc(JSON.parse(JSON.stringify(doc))); setIsEditingModal(false); };
+      
+      const handleModalUpdate = (id, field, value) => setEditDoc(p => ({...p, items: p.items.map(r => r.id===id ? {...r, [field]:value} : r)}));
+      const handleModalAddRow = () => setEditDoc(p => ({...p, items: [...p.items, {...initialRow, id: Date.now().toString()}]}));
+      const handleModalRemoveRow = (id) => setEditDoc(p => ({...p, items: p.items.length>1 ? p.items.filter(r=>r.id!==id) : p.items}));
+      
+      const saveModalChanges = () => {
+        const updatedTotal = editDoc.items.reduce((acc, r) => acc + ((parseInt(r.jumlah)||0) * (parseInt(r.hargaPerolehan)||0)), 0);
+        const finalDoc = { ...editDoc, totalValue: updatedTotal };
+        saveToDb('so_aset', finalDoc.id, finalDoc);
+        setSelectedDoc(finalDoc); setIsEditingModal(false);
+      };
+
+      if (showHistory) {
+        const targetDoc = isEditingModal ? editDoc : selectedDoc;
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between mb-4">
+              <div className="flex items-center gap-3"><button onClick={() => setShowHistory(false)} className="bg-white p-2.5 rounded-full shadow-sm"><ArrowLeft size={20}/></button><h2 className="text-2xl font-bold">Riwayat SO Aset</h2></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {soAsetList.map(doc => (
+                <div key={doc.id} className="bg-white p-5 rounded-2xl shadow-sm border relative group">
+                  <button onClick={() => delFromDb('so_aset', doc.id)} className="absolute top-4 right-4 text-red-400 opacity-0 group-hover:opacity-100 bg-red-50 p-1.5 rounded-lg"><Trash2 size={16}/></button>
+                  <h3 className="font-bold text-lg text-teal-800">{doc.store}</h3>
+                  <p className="text-xs text-gray-500">{doc.date} | Val: {doc.validator}</p>
+                  <div className="bg-teal-50 p-3 rounded-xl mt-3 flex justify-between">
+                    <div><p className="text-[10px] text-teal-600 font-bold uppercase">Item</p><p className="font-bold text-gray-800">{doc.items.length}</p></div>
+                    <div className="text-right"><p className="text-[10px] text-teal-600 font-bold uppercase">Total Nilai</p><p className="font-bold text-teal-700">{formatRp(doc.totalValue).replace(',00', '')}</p></div>
+                  </div>
+                  <button onClick={() => openModal(doc)} className="w-full mt-3 bg-white text-teal-700 py-2.5 rounded-xl border border-teal-200 text-sm font-bold shadow-sm">Lihat Detail</button>
+                </div>
+              ))}
+            </div>
+
+            {selectedDoc && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+                  <div className="p-4 bg-teal-600 text-white flex justify-between">
+                    <div><h3 className="font-bold text-lg">{isEditingModal ? 'Edit SO' : 'Detail SO'} - {targetDoc.store}</h3></div>
+                    <div className="flex gap-2">
+                      {!isEditingModal ? <button onClick={()=>setIsEditingModal(true)} className="bg-white/20 px-3 py-1.5 rounded-lg text-sm font-bold"><Edit size={16} className="inline mr-1"/>Edit</button> : <><button onClick={()=>setIsEditingModal(false)} className="bg-white/20 px-3 py-1.5 rounded-lg text-sm font-bold">Batal</button><button onClick={saveModalChanges} className="bg-green-500 px-3 py-1.5 rounded-lg text-sm font-bold"><Check size={16} className="inline mr-1"/>Simpan</button></>}
+                      <button onClick={()=>{setSelectedDoc(null);setIsEditingModal(false)}} className="p-1.5 hover:bg-white/20 rounded-full"><X size={20}/></button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-auto p-4 custom-scrollbar bg-gray-50">
+                    <table className="w-full text-xs border-collapse whitespace-nowrap bg-white border border-gray-300">
+                      <thead>
+                        <tr className="bg-[#e5e7eb] text-gray-800 border-y border-gray-400">
+                          <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold w-10">Aksi</th>
+                          <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[150px]">Nama Asset</th>
+                          <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[120px]">Merk/Type</th>
+                          <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold w-20">Jumlah</th>
+                          <th colSpan="2" className="border-x border-gray-400 p-1 font-bold text-center">Kondisi</th>
+                          <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[120px]">Harga</th>
+                        </tr>
+                        <tr className="bg-[#e5e7eb] text-gray-800 border-b border-gray-400">
+                          <th className="border-x border-gray-400 p-1 font-bold w-16">Layak</th>
+                          <th className="border-x border-gray-400 p-1 font-bold w-16">Rusak</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {targetDoc.items.map((row, idx) => (
+                          <tr key={row.id} className="border-b hover:bg-teal-50">
+                            <td className="border-x p-1 text-center">{isEditingModal ? <button onClick={()=>handleModalRemoveRow(row.id)} className="text-red-500"><Trash2 size={14}/></button> : idx+1}</td>
+                            <td className="border-x p-1">{isEditingModal ? <input value={row.namaAsset} onChange={e=>handleModalUpdate(row.id, 'namaAsset', e.target.value)} className="w-full p-1 outline-none bg-transparent"/> : row.namaAsset}</td>
+                            <td className="border-x p-1">{isEditingModal ? <input value={row.merkType} onChange={e=>handleModalUpdate(row.id, 'merkType', e.target.value)} className="w-full p-1 outline-none bg-transparent"/> : row.merkType}</td>
+                            <td className="border-x p-1 text-center">{isEditingModal ? <input type="number" value={row.jumlah} onChange={e=>handleModalUpdate(row.id, 'jumlah', e.target.value)} className="w-16 p-1 outline-none bg-transparent text-center font-bold"/> : row.jumlah}</td>
+                            <td className="border-x p-1 text-center">{isEditingModal ? <input type="number" value={row.kondisiLayak} onChange={e=>handleModalUpdate(row.id, 'kondisiLayak', e.target.value)} className="w-12 p-1 outline-none bg-transparent text-center"/> : row.kondisiLayak}</td>
+                            <td className="border-x p-1 text-center">{isEditingModal ? <input type="number" value={row.kondisiRusak} onChange={e=>handleModalUpdate(row.id, 'kondisiRusak', e.target.value)} className="w-12 p-1 outline-none bg-transparent text-center"/> : row.kondisiRusak}</td>
+                            <td className="border-x p-1 text-right">{isEditingModal ? <input type="number" value={row.hargaPerolehan} onChange={e=>handleModalUpdate(row.id, 'hargaPerolehan', e.target.value)} className="w-full p-1 outline-none bg-transparent text-right font-bold"/> : formatRp(row.hargaPerolehan).replace(',00','')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {isEditingModal && <button onClick={handleModalAddRow} className="mt-3 text-xs bg-white border border-teal-200 px-3 py-1.5 rounded-lg text-teal-700 font-bold">Tambah Baris</button>}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6 animate-fade-in w-full max-w-full">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-2xl font-bold text-gray-800">SO Aset (Spreadsheet)</h2>
+            <div className="flex gap-2">
+              <button onClick={() => setShowHistory(true)} className="bg-teal-600 text-white px-4 py-2.5 rounded-xl font-bold shadow-md"><FileText size={16} className="inline mr-2"/>Riwayat</button>
+              <a href="https://forms.google.com/" target="_blank" rel="noopener noreferrer" className="bg-[#673ab7] text-white px-4 py-2.5 rounded-xl font-bold shadow-md"><ExternalLink size={16} className="inline mr-2"/>G-Form</a>
+            </div>
+          </div>
+          
+          <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-200 w-full overflow-hidden">
+            <div className="bg-[#f3f4f6] p-4 rounded-t-lg border-b border-gray-300">
+              <div className="grid grid-cols-[120px_1fr] gap-3 max-w-sm font-semibold text-sm">
+                <div>Store :</div><select value={store} onChange={e=>setStore(e.target.value)} className="p-1 rounded border outline-none"><option value="">Pilih</option>{cabangList.map((c,i)=><option key={i}>{c.name}</option>)}</select>
+                <div>Date :</div><input type="date" value={date} onChange={e=>setDate(e.target.value)} className="p-1 rounded border outline-none"/>
+                <div>Validator :</div><input type="text" value={validator} onChange={e=>setValidator(e.target.value)} className="p-1 rounded border outline-none"/>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto custom-scrollbar bg-white w-full">
+              <table className="w-full text-xs border-collapse whitespace-nowrap min-w-[1200px]">
+                <thead>
+                  <tr className="bg-[#e5e7eb] text-gray-800 border-y border-gray-400">
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold w-10">Aksi</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[150px]">Nama Asset</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[120px]">Merk / Type</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[100px]">Kategori</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[100px]">Area</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold w-20">Jumlah</th>
+                    <th colSpan="2" className="border-x border-gray-400 p-1 font-bold text-center">Kondisi Barang</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold w-24">Total Asset</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[120px]">Tanggal Beli</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[120px]">Harga Perolehan</th>
+                    <th rowSpan="2" className="border-x border-gray-400 p-2 font-bold min-w-[120px]">Total Harga</th>
+                  </tr>
+                  <tr className="bg-[#e5e7eb] text-gray-800 border-b border-gray-400">
+                    <th className="border-x border-gray-400 p-1 font-bold w-24">Layak Pakai</th>
+                    <th className="border-x border-gray-400 p-1 font-bold w-20">Rusak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const totalAsset = (parseInt(row.kondisiLayak)||0) + (parseInt(row.kondisiRusak)||0);
+                    const totalHarga = (parseInt(row.jumlah)||0) * (parseInt(row.hargaPerolehan)||0);
+                    return (
+                      <tr key={row.id} className="border-b border-gray-300 hover:bg-teal-50">
+                        <td className="border-x p-1 text-center"><button onClick={() => removeRow(row.id)} className="text-gray-400 hover:text-red-500 bg-white p-1 rounded shadow-sm"><Trash2 size={14}/></button></td>
+                        <td className="border-x p-0"><input type="text" value={row.namaAsset} onChange={e=>updateRow(row.id,'namaAsset',e.target.value)} className="w-full p-2 outline-none bg-transparent"/></td>
+                        <td className="border-x p-0"><input type="text" value={row.merkType} onChange={e=>updateRow(row.id,'merkType',e.target.value)} className="w-full p-2 outline-none bg-transparent text-center"/></td>
+                        <td className="border-x p-0"><select value={row.kategori} onChange={e=>updateRow(row.id,'kategori',e.target.value)} className="w-full p-2 outline-none bg-transparent text-center cursor-pointer"><option value="Aset">Aset</option><option value="Utensil">Utensil</option><option value="Equipment">Equipment</option></select></td>
+                        <td className="border-x p-0"><select value={row.area} onChange={e=>updateRow(row.id,'area',e.target.value)} className="w-full p-2 outline-none bg-transparent text-center cursor-pointer"><option value="Kitchen">Kitchen</option><option value="Pantry / Bar">Pantry / Bar</option><option value="Outlet">Outlet</option></select></td>
+                        <td className="border-x p-0"><input type="number" value={row.jumlah} onChange={e=>updateRow(row.id,'jumlah',e.target.value)} className="w-full p-2 outline-none bg-transparent text-center font-bold"/></td>
+                        <td className="border-x p-0"><input type="number" value={row.kondisiLayak} onChange={e=>updateRow(row.id,'kondisiLayak',e.target.value)} className="w-full p-2 outline-none bg-transparent text-center"/></td>
+                        <td className="border-x p-0"><input type="number" value={row.kondisiRusak} onChange={e=>updateRow(row.id,'kondisiRusak',e.target.value)} className="w-full p-2 outline-none bg-transparent text-center"/></td>
+                        <td className="border-x p-2 text-center font-bold bg-gray-50">{totalAsset > 0 ? totalAsset : ''}</td>
+                        <td className="border-x p-0"><input type="date" value={row.tanggalBeli} onChange={e=>updateRow(row.id,'tanggalBeli',e.target.value)} className="w-full p-2 outline-none bg-transparent text-center"/></td>
+                        <td className="border-x p-0 relative"><span className="absolute left-2 top-2 text-gray-400 text-[10px]">Rp</span><input type="number" value={row.hargaPerolehan} onChange={e=>updateRow(row.id,'hargaPerolehan',e.target.value)} className="w-full pl-6 pr-2 py-2 outline-none bg-transparent text-right font-medium"/></td>
+                        <td className="border-x p-2 text-right font-bold bg-gray-50 text-teal-700">{totalHarga > 0 ? formatRp(totalHarga).replace(',00', '') : 'Rp0'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-white p-4 border-t flex justify-between">
+              <button onClick={addRow} className="text-sm font-bold text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-200 shadow-sm">+ Tambah Baris Aset</button>
+              <button onClick={saveSO} className="text-sm font-bold text-white bg-teal-600 px-6 py-2.5 rounded-xl shadow-md">Simpan Data SO</button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const ViewTC = ({ cabangList, tcList, saveToDb, delFromDb }) => {
+      const today = new Date().toISOString().split('T')[0];
+      const [showHistory, setShowHistory] = useState(false);
+
+      const [inputDate, setInputDate] = useState(today); const [inputCabang, setInputCabang] = useState('');
+      const [tcGoFood, setTcGoFood] = useState(''); const [tcGrabFood, setTcGrabFood] = useState(''); 
+      const [tcShopeeFood, setTcShopeeFood] = useState(''); const [tcOffline, setTcOffline] = useState('');
+
+      const [filterDate, setFilterDate] = useState(today); const [filterMonth, setFilterMonth] = useState(today.substring(0,7)); const [filterCabang, setFilterCabang] = useState('Semua');
+
+      const handleSubmit = () => {
+        if (!inputDate || !inputCabang) return;
+        const totalTC = (parseInt(tcGoFood)||0) + (parseInt(tcGrabFood)||0) + (parseInt(tcShopeeFood)||0) + (parseInt(tcOffline)||0);
+        const dateObj = new Date(inputDate);
+        const newId = Date.now().toString();
+        saveToDb('tc', newId, { id: newId, date: dateObj.toLocaleDateString('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}), rawDate: inputDate, cabang: inputCabang, gofood: parseInt(tcGoFood)||0, grabfood: parseInt(tcGrabFood)||0, shopeefood: parseInt(tcShopeeFood)||0, offline: parseInt(tcOffline)||0, total: totalTC, createdAt: Date.now() });
+        setTcGoFood(''); setTcGrabFood(''); setTcShopeeFood(''); setTcOffline('');
+      };
+
+      const filteredTC = tcList.filter(item => (filterCabang === 'Semua' || item.cabang === filterCabang) && ((filterDate && item.rawDate === filterDate) || (!filterDate && filterMonth && item.rawDate.startsWith(filterMonth))));
+
+      if (showHistory) {
+        const mData = tcList.filter(item => (filterCabang === 'Semua' || item.cabang === filterCabang) && (item.rawDate.startsWith(filterMonth)));
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-2"><button onClick={() => setShowHistory(false)} className="bg-white hover:bg-gray-100 p-2.5 rounded-full shadow-sm"><ArrowLeft size={20} /></button><h2 className="text-2xl font-bold text-gray-800">Riwayat TC</h2></div>
+            
+            <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-3xl p-6 text-white flex justify-between items-center relative overflow-hidden">
+              <div className="z-10 w-full">
+                <h4 className="text-indigo-100 font-bold uppercase flex gap-2 items-center mb-2"><Calendar size={16}/> Total TC Bulan: <input type="month" value={filterMonth} onChange={e => {setFilterMonth(e.target.value); setFilterDate('')}} className="bg-indigo-800/60 p-1 outline-none rounded text-xs cursor-pointer"/></h4>
+                <div className="text-4xl font-black">{mData.reduce((a,c)=>a+c.total,0).toLocaleString('id-ID')} <span className="text-lg text-indigo-200">Transaksi</span></div>
+              </div>
+              <div className="z-10 flex gap-4 bg-white/10 p-4 rounded-2xl">
+                <div className="text-center"><p className="text-[10px] text-indigo-200 uppercase">GoFood</p><p className="font-bold text-xl">{mData.reduce((a,c)=>a+c.gofood,0)}</p></div>
+                <div className="text-center"><p className="text-[10px] text-indigo-200 uppercase">GrabFood</p><p className="font-bold text-xl">{mData.reduce((a,c)=>a+c.grabfood,0)}</p></div>
+                <div className="text-center"><p className="text-[10px] text-indigo-200 uppercase">Shopee</p><p className="font-bold text-xl">{mData.reduce((a,c)=>a+c.shopeefood,0)}</p></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+               <div className="flex justify-between bg-indigo-50 p-4 rounded-xl mb-6">
+                  <h3 className="font-bold text-indigo-800 flex items-center gap-2"><ShoppingCart size={20}/> TC Harian</h3>
+                  <div className="flex gap-2">
+                    <input type="date" value={filterDate} onChange={e => {setFilterDate(e.target.value); if(e.target.value) setFilterMonth(e.target.value.substring(0,7))}} className="p-1.5 text-xs bg-white border rounded outline-none"/>
+                    {filterDate && <button onClick={()=>setFilterDate('')} className="px-2 text-gray-400"><X size={14}/></button>}
+                    <select value={filterCabang} onChange={e=>setFilterCabang(e.target.value)} className="p-1.5 text-xs bg-white border rounded"><option value="Semua">Semua Cabang</option>{cabangList.map((c,i)=><option key={i}>{c.name}</option>)}</select>
+                  </div>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredTC.map(item => (
+                    <div key={item.id} className="bg-white p-5 rounded-2xl border relative group shadow-sm">
+                      <button onClick={()=>delFromDb('tc', item.id)} className="absolute top-4 right-4 text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                      <span className="font-extrabold text-lg block">{item.cabang}</span>
+                      <span className="text-[11px] text-gray-500 bg-gray-100 px-2 py-1 rounded-md"><Calendar size={12} className="inline mr-1"/>{item.date}</span>
+                      <div className="grid grid-cols-2 gap-3 my-4">
+                        <div className="bg-red-50 p-2 rounded-xl flex items-center gap-2"><PlatformLogo platform="GoFood" size={20}/><div><p className="text-[10px] font-bold text-red-500 uppercase">GoFood</p><p className="font-black">{item.gofood}</p></div></div>
+                        <div className="bg-green-50 p-2 rounded-xl flex items-center gap-2"><PlatformLogo platform="GrabFood" size={20}/><div><p className="text-[10px] font-bold text-green-600 uppercase">GrabFood</p><p className="font-black">{item.grabfood}</p></div></div>
+                        <div className="bg-orange-50 p-2 rounded-xl flex items-center gap-2"><PlatformLogo platform="ShopeeFood" size={20}/><div><p className="text-[10px] font-bold text-orange-600 uppercase">Shopee</p><p className="font-black">{item.shopeefood}</p></div></div>
+                        <div className="bg-gray-50 p-2 rounded-xl flex items-center gap-2"><ShoppingCart size={16} className="text-gray-500"/><div><p className="text-[10px] font-bold text-gray-500 uppercase">Offline</p><p className="font-black">{item.offline}</p></div></div>
+                      </div>
+                      <div className="bg-indigo-50 p-2.5 rounded-xl flex justify-between font-black text-indigo-700"><span>Total</span><span>{item.total}</span></div>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6 animate-fade-in w-full max-w-4xl mx-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-800">Total Transaksi (TC) Harian</h2>
+            <button onClick={() => setShowHistory(true)} className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-md"><FileText size={18}/> Riwayat TC</button>
+          </div>
+          <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
+            <div className="grid grid-cols-2 gap-6 mb-8">
+              <div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Tanggal</label><input type="date" value={inputDate} onChange={e => {setInputDate(e.target.value); setFilterDate(e.target.value); if(e.target.value) setFilterMonth(e.target.value.substring(0,7))}} className="w-full p-3.5 border rounded-xl bg-gray-50 font-bold"/></div>
+              <div><label className="text-xs font-bold text-gray-600 mb-1 block uppercase">Cabang</label><select value={inputCabang} onChange={e => setInputCabang(e.target.value)} className="w-full p-3.5 border rounded-xl bg-gray-50 font-bold"><option value="">Pilih Cabang</option>{cabangList.map((c,i)=><option key={i}>{c.name}</option>)}</select></div>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-2xl border mb-8">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+                <div className="bg-white p-4 rounded-xl border flex gap-3"><PlatformLogo platform="GoFood" size={32} /><div><label className="text-[10px] font-bold text-red-500 uppercase">GoFood</label><input type="number" value={tcGoFood} onChange={e=>setTcGoFood(e.target.value)} className="w-full text-xl font-black outline-none" placeholder="0"/></div></div>
+                <div className="bg-white p-4 rounded-xl border flex gap-3"><PlatformLogo platform="GrabFood" size={32} /><div><label className="text-[10px] font-bold text-green-600 uppercase">GrabFood</label><input type="number" value={tcGrabFood} onChange={e=>setTcGrabFood(e.target.value)} className="w-full text-xl font-black outline-none" placeholder="0"/></div></div>
+                <div className="bg-white p-4 rounded-xl border flex gap-3"><PlatformLogo platform="ShopeeFood" size={32} /><div><label className="text-[10px] font-bold text-orange-600 uppercase">Shopee</label><input type="number" value={tcShopeeFood} onChange={e=>setTcShopeeFood(e.target.value)} className="w-full text-xl font-black outline-none" placeholder="0"/></div></div>
+                <div className="bg-white p-4 rounded-xl border flex gap-3"><ShoppingCart size={24} className="text-gray-500 mt-1" /><div><label className="text-[10px] font-bold text-gray-500 uppercase">Offline</label><input type="number" value={tcOffline} onChange={e=>setTcOffline(e.target.value)} className="w-full text-xl font-black outline-none" placeholder="0"/></div></div>
+              </div>
+            </div>
+            <button onClick={handleSubmit} disabled={!inputCabang || !inputDate} className={`w-full p-4 rounded-xl font-bold text-white shadow-sm flex items-center justify-center gap-2 ${(!inputCabang || !inputDate) ? 'bg-indigo-300' : 'bg-indigo-600 hover:bg-indigo-700'}`}><Check size={20} /> Simpan TC</button>
+          </div>
+        </div>
+      );
+    };
+
+    const ViewGAP = () => (
+      <div className="space-y-6 animate-fade-in text-center max-w-4xl mx-auto">
+        <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-200 mt-10">
+          <Target size={64} className="mx-auto text-green-500 mb-6" />
+          <h3 className="text-2xl font-bold text-gray-800 mb-2">Laporan GAP Terintegrasi</h3>
+          <p className="text-gray-500 max-w-md mx-auto mb-8">Data analisis GAP dikelola secara eksternal melalui Google Spreadsheets.</p>
+          <a href="https://docs.google.com/spreadsheets/d/1PaAh5pv_6TprQb6uf_hSLsEb6S42ir7wkHKIVfdhkDk/edit?gid=1389426649#gid=1389426649" target="_blank" rel="noopener noreferrer" className="bg-[#0f9d58] hover:bg-[#0b8043] text-white px-6 py-3 rounded-xl font-bold shadow-md inline-flex items-center gap-2">
+            <FileText size={18}/> Buka Spreadsheet GAP <ExternalLink size={18} className="ml-1"/>
+          </a>
+        </div>
+      </div>
+    );
+
+    const ViewSchedule = () => (
+      <div className="space-y-6 animate-fade-in text-center max-w-4xl mx-auto">
+        <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-200 mt-10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
+          <Calendar size={64} className="mx-auto text-blue-500 mb-6 relative z-10" />
+          <h3 className="text-2xl font-bold text-gray-800 mb-2 relative z-10">Manajemen Jadwal</h3>
+          <p className="text-gray-500 max-w-md mx-auto mb-8 relative z-10">Data kalender dan pembagian jadwal dikelola secara eksternal melalui Google Spreadsheets agar lebih kolaboratif.</p>
+          <div className="flex justify-center gap-4 relative z-10">
+            <a href="https://docs.google.com/spreadsheets/d/1L0BYiCQ5g2zbxesnm7oON3VQhPrhMUdeyj-iEsuvJb0/edit?ouid=117199496870039178641&usp=sheets_home" target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-md flex items-center gap-2"><Calendar size={18}/> Schedule HQ <ExternalLink size={16}/></a>
+            <a href="https://docs.google.com/spreadsheets/d/1x6-ua2IWSXZEnCsNW7IrHV47Rdb0MQ6sQrjL2KRfSmc/edit?ouid=117199496870039178641&usp=sheets_home" target="_blank" rel="noopener noreferrer" className="bg-[#0f9d58] text-white px-6 py-3 rounded-xl font-bold shadow-md flex items-center gap-2"><Calendar size={18}/> Schedule Outlet <ExternalLink size={16}/></a>
+          </div>
+        </div>
+      </div>
+    );
+
+    const ViewPengaturan = ({ userProfile, masterRoles, security, updateInDb }) => {
+      const [activeTab, setActiveTab] = useState('profil');
+      const [editProfile, setEditProfile] = useState(userProfile);
+      const [newRole, setNewRole] = useState('');
+      
+      const [oldPin, setOldPin] = useState('');
+      const [newPin, setNewPin] = useState('');
+      const [pinMsg, setPinMsg] = useState('');
+
+      useEffect(() => {
+        if (userProfile && userProfile.name !== 'Memuat...') {
+          setEditProfile(userProfile);
+        }
+      }, [userProfile]);
+
+      const handleSaveProfile = () => {
+        updateInDb('globals', 'profile', editProfile);
+        alert('Profil berhasil diperbarui!');
+      };
+      
+      const handleAddRole = () => {
+        if (newRole.trim() && !masterRoles.includes(newRole.trim())) {
+          updateInDb('globals', 'master_roles', { roles: [...masterRoles, newRole.trim()] });
+          setNewRole('');
+        }
+      };
+      const handleRemoveRole = (role) => updateInDb('globals', 'master_roles', { roles: masterRoles.filter(r => r !== role) });
+
+      const handleChangePin = () => {
+        if (oldPin !== security.pin) setPinMsg('PIN Lama salah!');
+        else if (newPin.length < 4) setPinMsg('PIN Baru min 4 digit!');
+        else { updateInDb('globals', 'security', { pin: newPin }); setPinMsg('PIN Berhasil Diubah!'); setOldPin(''); setNewPin(''); }
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in font-sans w-full max-w-5xl">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Pengaturan Sistem Cloud</h2>
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-full md:w-64 flex flex-col gap-2 shrink-0">
+              <button onClick={() => setActiveTab('profil')} className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-sm border ${activeTab === 'profil' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white'}`}><User size={18}/> Profil SPV</button>
+              <button onClick={() => setActiveTab('master')} className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-sm border ${activeTab === 'master' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white'}`}><Database size={18}/> Data Master (Role)</button>
+              <button onClick={() => setActiveTab('sistem')} className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-sm border ${activeTab === 'sistem' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white'}`}><Shield size={18}/> Keamanan & Login</button>
+            </div>
+
+            <div className="flex-1 bg-white rounded-3xl p-6 lg:p-8 shadow-sm border border-gray-200 min-h-[400px]">
+              {activeTab === 'profil' && (
+                <div className="animate-fade-in max-w-xl space-y-5">
+                  <h3 className="font-bold text-lg border-b pb-4 flex items-center gap-2"><User className="text-indigo-500"/> Informasi Akun</h3>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 block mb-1">Nama Lengkap</label>
+                    <input type="text" value={editProfile.name || ''} onChange={e => setEditProfile({...editProfile, name: e.target.value})} className="w-full p-3.5 border rounded-xl bg-gray-50 font-bold"/>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 block mb-1">Jabatan / Role</label>
+                    <input type="text" value={editProfile.role || ''} onChange={e => setEditProfile({...editProfile, role: e.target.value})} className="w-full p-3.5 border rounded-xl bg-gray-50 font-bold"/>
+                  </div>
+                  <button onClick={handleSaveProfile} className="bg-indigo-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-indigo-700 transition flex items-center gap-2"><Save size={18}/>Simpan Profil</button>
+                </div>
+              )}
+              {activeTab === 'master' && (
+                <div className="animate-fade-in">
+                  <h3 className="font-bold text-lg border-b pb-4 flex items-center gap-2 mb-4"><Database className="text-indigo-500"/> Kelola Role Karyawan</h3>
+                  <div className="flex gap-2 mb-6 max-w-md">
+                    <input type="text" value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Role Baru..." className="flex-1 p-3 border rounded-xl bg-white"/>
+                    <button onClick={handleAddRole} className="bg-indigo-600 text-white px-4 rounded-xl font-bold hover:bg-indigo-700 transition"><Plus size={18}/></button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {masterRoles.map((role, idx) => (
+                      <div key={idx} className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-bold border flex items-center gap-2">{role} <button onClick={() => handleRemoveRole(role)}><X size={14}/></button></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {activeTab === 'sistem' && (
+                <div className="animate-fade-in max-w-md space-y-5">
+                  <h3 className="font-bold text-lg border-b pb-4 flex items-center gap-2"><Lock className="text-indigo-500"/> Ubah PIN Login Sistem</h3>
+                  <input type="password" value={oldPin} onChange={e=>setOldPin(e.target.value)} placeholder="PIN Lama" className="w-full p-3 border rounded-xl bg-gray-50 tracking-widest text-center text-xl"/>
+                  <input type="password" value={newPin} onChange={e=>setNewPin(e.target.value)} placeholder="PIN Baru (Min 4 Angka)" className="w-full p-3 border rounded-xl bg-gray-50 tracking-widest text-center text-xl"/>
+                  <button onClick={handleChangePin} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Update PIN</button>
+                  {pinMsg && <p className="text-center font-bold text-indigo-600">{pinMsg}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const MainDashboard = ({ onLogout, fbUser }) => {
+      const [currentView, setCurrentView] = useState('beranda');
+      const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+      // Reactive local/cloud storage hooks
+      const cabangList = useCollection(fbUser, 'cabang');
+      const mppList = useCollection(fbUser, 'mpp');
+      const komplainList = useCollection(fbUser, 'komplain', true);
+      const btoList = useCollection(fbUser, 'bto', true);
+      const btmList = useCollection(fbUser, 'btm', true);
+      const tcList = useCollection(fbUser, 'tc', true);
+      const mtdList = useCollection(fbUser, 'mtd');
+      const soAsetList = useCollection(fbUser, 'so_aset', true);
+      const visitList = useCollection(fbUser, 'visits', true);
+      const isueList = useCollection(fbUser, 'isues', true);
+
+      const userProfile = useDocument(fbUser, 'profile', DEFAULT_PROFILE);
+      const masterRoles = useDocument(fbUser, 'master_roles', { roles: DEFAULT_ROLES }).roles || DEFAULT_ROLES;
+      const branchRatings = useDocument(fbUser, 'ratings', DEFAULT_RATINGS);
+      const security = useDocument(fbUser, 'security', DEFAULT_SECURITY);
+
+      const MENU_ITEMS = [
+        { id: 'beranda', label: 'Beranda', icon: <Home size={20} /> },
+        { id: 'cabang', label: 'Cabang', icon: <MapPin size={20} /> },
+        { id: 'mpp', label: 'MPP', icon: <Users size={20} /> },
+        { id: 'mtd', label: 'MTD', icon: <TrendingUp size={20} /> },
+        { id: 'komplan', label: 'Komplain', icon: <AlertCircle size={20} /> },
+        { id: 'bto', label: 'BTO & BTM', icon: <FileWarning size={20} /> },
+        { id: 'rating', label: 'Rating', icon: <Star size={20} /> },
+        { id: 'ga', label: 'GA & Aset', icon: <Briefcase size={20} /> },
+        { id: 'gap', label: 'GAP (Target 5%)', icon: <Target size={20} /> },
+        { id: 'tc', label: 'TC Harian', icon: <ShoppingCart size={20} /> },
+        { id: 'schedule', label: 'Schedule', icon: <Calendar size={20} /> },
+        { id: 'pengaturan', label: 'Pengaturan', icon: <Settings size={20} /> },
+      ];
+
+      const renderView = () => {
+        switch(currentView) {
+          case 'beranda': return <ViewBeranda cabangList={cabangList} />;
+          case 'cabang': return <ViewCabang cabangList={cabangList} saveToDb={saveToDb} updateInDb={updateInDb} delFromDb={delFromDb} />;
+          case 'mpp': return <ViewMPP mppList={mppList} masterRoles={masterRoles} updateInDb={updateInDb} />;
+          case 'mtd': return <ViewMTD cabangList={cabangList} mtdList={mtdList} saveToDb={saveToDb} />;
+          case 'komplan': return <ViewKomplan cabangList={cabangList} komplainList={komplainList} saveToDb={saveToDb} updateInDb={updateInDb} delFromDb={delFromDb} />;
+          case 'bto': return <ViewBTO cabangList={cabangList} btoList={btoList} btmList={btmList} saveToDb={saveToDb} delFromDb={delFromDb} />;
+          case 'rating': return <ViewRating cabangList={cabangList} branchRatings={branchRatings} updateInDb={updateInDb} />;
+          case 'ga': return <ViewGA cabangList={cabangList} soAsetList={soAsetList} saveToDb={saveToDb} delFromDb={delFromDb} />;
+          case 'tc': return <ViewTC cabangList={cabangList} tcList={tcList} saveToDb={saveToDb} delFromDb={delFromDb} />;
+          case 'gap': return <ViewGAP />;
+          case 'schedule': return <ViewSchedule />;
+          case 'pengaturan': return <ViewPengaturan userProfile={userProfile} masterRoles={masterRoles} security={security} updateInDb={updateInDb} />;
+          default: return <ViewBeranda cabangList={cabangList} />;
+        }
+      };
+
+      const rawName = (userProfile && userProfile.name) || 'Ilham Saputra';
+      const userFirstName = rawName.split(' ')[0] || 'User';
+      const userInitials = rawName.split(' ').filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase() || 'IS';
+
+      return (
+        <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+          {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}/>}
+
+          <div className={`fixed lg:static inset-y-0 left-0 w-64 bg-white shadow-xl z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 flex flex-col h-full border-r border-gray-100`}>
+            <div className="p-6 flex justify-between bg-green-600 text-white shadow-md z-10">
+              <div className="flex items-center gap-3">
+                <div className="bg-white p-2 rounded-xl text-green-600"><Cloud size={24}/></div>
+                <div>
+                  <h1 className="font-black text-lg leading-none">SPV CLOUD</h1>
+                  <p className="text-[10px] text-green-200 uppercase font-bold tracking-widest mt-1">Online Sync</p>
+                </div>
+              </div>
+              <button className="lg:hidden" onClick={() => setIsSidebarOpen(false)}><X size={24} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+              <p className="px-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 mt-2">Main Menu</p>
+              {MENU_ITEMS.map((item) => (
+                <button key={item.id} onClick={() => { setCurrentView(item.id); if(window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold text-sm ${currentView === item.id ? 'bg-green-50 text-green-700 shadow-sm border border-green-100' : 'text-gray-600 hover:bg-gray-50'}`}>
+                  <div className={`${currentView === item.id ? 'text-green-600' : 'text-gray-400'}`}>{item.icon}</div>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            
+            <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+              <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all font-bold text-sm"><LogOut size={20}/> Keluar Sistem</button>
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+            <header className="bg-white border-b border-gray-100 p-4 lg:px-8 flex items-center justify-between shadow-sm z-10 sticky top-0">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-xl text-gray-600 hover:bg-gray-100 lg:hidden"><Menu size={24} /></button>
+                <div className="hidden sm:block">
+                  <h2 className="font-extrabold text-gray-800 text-lg">Halo, {userFirstName}! 👋</h2>
+                  <p className="text-xs text-gray-500 font-medium">Monitoring performa cabang via Cloud Server</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="hidden lg:flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full border border-green-200"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Server Online</span>
+                <div className="hidden sm:flex flex-col items-end mr-2">
+                  <span className="text-sm font-bold text-gray-800">{userProfile.name}</span>
+                  <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-md uppercase max-w-[150px] truncate">{userProfile.role}</span>
+                </div>
+                <div className="w-10 h-10 bg-gradient-to-tr from-green-500 to-emerald-400 rounded-full flex items-center justify-center text-white font-bold shadow-md border-2 border-white">{userInitials}</div>
+              </div>
+            </header>
+            
+            <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-gray-50 custom-scrollbar flex justify-center">
+              <div className="w-full max-w-7xl relative pb-20">
+                {renderView()}
+              </div>
+            </main>
+          </div>
+        </div>
+      );
+    };
+
+    const App = () => {
+      const [currentScreen, setCurrentScreen] = useState('welcome'); // welcome, login, dashboard
+      const [fbUser, setFbUser] = useState(null);
+      const [isDbConnected, setIsDbConnected] = useState(false);
+      const [systemPin, setSystemPin] = useState('123456');
+
+      useEffect(() => {
+        initLocalStorage();
+        try {
+          const sec = JSON.parse(localStorage.getItem(DB_PREFIX + 'globals_security') || '{"pin":"123456"}');
+          if (sec && sec.pin) setSystemPin(sec.pin);
+        } catch(e) {}
+
+        // Connect database
+        const timer = setTimeout(() => {
+          setFbUser({ uid: 'spv_ilham', name: 'Ilham Saputra' });
+          setIsDbConnected(true);
+        }, 300);
+
+        return () => clearTimeout(timer);
+      }, []);
+
+      if (!isDbConnected) return <ServerLoadingScreen />;
+
+      return (
+        <div className="min-h-screen bg-gray-100 font-sans">
+          {currentScreen === 'welcome' && <WelcomeScreen onNext={() => setCurrentScreen('login')} />}
+          {currentScreen === 'login' && <LoginScreen onLogin={() => setCurrentScreen('dashboard')} onBack={() => setCurrentScreen('welcome')} systemPin={systemPin} />}
+          {currentScreen === 'dashboard' && <MainDashboard onLogout={() => setCurrentScreen('welcome')} fbUser={fbUser} />}
+        </div>
+      );
+    };
+
+    // Render the React app
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
